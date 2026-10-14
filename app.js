@@ -23,9 +23,9 @@ const NAV=[["home","/"],["about","/about"],["services","/services"],["pricing","
 async function load(c,all){
   if(!all&&cache[c])return cache[c];
   const q=all?collection(db,c):query(collection(db,c),where("status","==","published"));
-  try{const r=(await getDocs(q)).docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(+a.order||0)-(+b.order||0));if(!all)cache[c]=r;return r}catch(e){console.error(e);return[]}
+  try{const r=(await Promise.race([getDocs(q),new Promise((_,j)=>setTimeout(()=>j("timeout"),8000))])).docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(+a.order||0)-(+b.order||0));if(!all)cache[c]=r;return r}catch(e){console.error(e);return[]}
 }
-async function loadSettings(){try{const d=await getDoc(doc(db,"settings","site"));S=d.exists()?d.data():{}}catch(e){S={}}}
+async function loadSettings(){try{const d=await Promise.race([getDoc(doc(db,"settings","site")),new Promise((_,j)=>setTimeout(()=>j("timeout"),8000))]);S=d.exists()?d.data():{}}catch(e){console.error(e);S={}}}
 
 const nav=(to)=>{history.pushState({},"",to);render();scrollTo(0,0)};
 document.addEventListener("click",e=>{const a=e.target.closest("a[data-l]");if(a){e.preventDefault();nav(a.getAttribute("href"))}});
@@ -155,6 +155,7 @@ async function render(){
   setMeta(S.name?`${T(NAV.find(n=>n[1]==path)?.[0]||"home")} | ${S.name}`:undefined);
   root.innerHTML=shell(body,path);bind(path);
 }
-await loadSettings();
 onAuthStateChanged(auth,u=>{user=u;if(location.pathname.startsWith("/admin"))render()});
 render();
+loadSettings().then(()=>{if(!location.pathname.startsWith("/admin"))render()});
+addEventListener("error",e=>{if(!root.innerHTML.trim())root.innerHTML=`<pre style="padding:20px;color:#b00;white-space:pre-wrap">Error: ${esc(e.message)}</pre>`});
