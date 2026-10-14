@@ -1,0 +1,31 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isAdmin() {
+      return request.auth != null && request.auth.uid in [
+        '1KzcmMYoT1dAtFFig2cV3MVHYsB2',
+        '6En48ZzM7zM9vkFNWdvM4IRE7hu1',
+        'WyCPOSOeoETvALsBOgpDlylKPpn2'
+      ];
+    }
+    match /settings/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    match /{col}/{id} {
+      allow read: if col in ['services','packages','projects','paymentMethods','faqs','pages']
+                     && (resource.data.status == 'published' || isAdmin());
+      allow write: if col in ['services','packages','projects','paymentMethods','faqs','pages']
+                      && isAdmin();
+    }
+    match /contactSubmissions/{id} {
+      allow read, update, delete: if isAdmin();
+      allow create: if request.resource.data.keys().hasOnly(['name','contact','service','date','budget','message','status','createdAt'])
+        && request.resource.data.name is string && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 100
+        && request.resource.data.contact is string && request.resource.data.contact.size() > 4 && request.resource.data.contact.size() <= 100
+        && request.resource.data.message is string && request.resource.data.message.size() > 0 && request.resource.data.message.size() <= 2000
+        && request.resource.data.status == 'new'
+        && request.resource.data.createdAt == request.time;
+    }
+  }
+}
